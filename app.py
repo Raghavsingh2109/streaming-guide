@@ -86,9 +86,15 @@ st.write("Find the best platform and shows based on your favourite genre!")
 combined = load_data()
 build_model(combined)
 
-groq_api_key = st.secrets["GROQ_API_KEY"]
-client = Groq(api_key=groq_api_key)
+try:
+    groq_api_key = st.secrets["GROQ_API_KEY"]
+except:
+    groq_api_key = st.text_input("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", type="password")
+    if not groq_api_key:
+        st.warning("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")
+        st.stop()
 
+client = Groq(api_key=groq_api_key)
 genre = st.text_input("Enter your favourite genre", placeholder="e.g. Action, Drama, Comedy, Horror")
 
 if st.button("Get Recommendations"):
