@@ -1,4 +1,7 @@
 import streamlit as st
+
+st.title("Test App")
+st.write("Hello! App is working.")
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
