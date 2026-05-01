@@ -4,14 +4,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from groq import Groq
 
-# page setup
 st.set_page_config(page_title="Smart Streaming Guide", page_icon="🎬")
 
-# load datasets
 @st.cache_data
 def load_data():
     base = "https://raw.githubusercontent.com/Raghavsingh2109/streaming-guide/main/"
-    
+
     prime = pd.read_csv(base + "primevideo_india_movies_and_shows.csv")
     netflix = pd.read_csv(base + "netflix_india_shows_and_movies.csv")
     hotstar = pd.read_csv(base + "hotstar.csv")
@@ -37,7 +35,6 @@ def load_data():
 
     return combined
 
-# build tfidf model
 @st.cache_resource
 def build_model(combined):
     tfidf = TfidfVectorizer(stop_words='english')
@@ -45,7 +42,6 @@ def build_model(combined):
     cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
     return cosine_sim
 
-# get ai recommendation
 def get_recommendation(genre_input, combined, client):
     genre_input = genre_input.lower()
     matches = combined[combined['genre'].str.lower().str.contains(genre_input, na=False)]
@@ -79,7 +75,6 @@ which platform suits them best and what to watch first. Keep it simple and conve
 
     return chat.choices[0].message.content, matches
 
-# main app
 st.title("🎬 Smart Streaming Guide - India")
 st.write("Find the best platform and shows based on your favourite genre!")
 
@@ -95,6 +90,7 @@ except:
         st.stop()
 
 client = Groq(api_key=groq_api_key)
+
 genre = st.text_input("Enter your favourite genre", placeholder="e.g. Action, Drama, Comedy, Horror")
 
 if st.button("Get Recommendations"):
