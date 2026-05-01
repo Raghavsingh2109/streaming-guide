@@ -10,7 +10,7 @@ st.set_page_config(page_title="Smart Streaming Guide", page_icon="🎬")
 # load datasets
 @st.cache_data
 def load_data():
-    base = "base = "https://raw.githubusercontent.com/Raghavsingh2109/streaming-guide/main/""
+    base = "base = "https://raw.githubusercontent.com/Raghavsingh2109/streaming-guide/main/"
     
     prime = pd.read_csv(base + "primevideo_india_movies_and_shows.csv")
     netflix = pd.read_csv(base + "netflix_india_shows_and_movies.csv")
