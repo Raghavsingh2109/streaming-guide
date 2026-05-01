@@ -6,6 +6,8 @@ from groq import Groq
 
 st.set_page_config(page_title="Smart Streaming Guide", page_icon="🎬")
 
+st.write("App is starting...")
+
 @st.cache_data
 def load_data():
     base = "https://raw.githubusercontent.com/Raghavsingh2109/streaming-guide/main/"
