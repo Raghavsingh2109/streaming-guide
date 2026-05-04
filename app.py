@@ -133,7 +133,7 @@ MOOD_MAP = {
 }
 
 # loading and combining all three platform datasets into one
-# wrapped in try/except so if a column name is slightly different it shows a proper error
+# fixed column names to match exactly what each csv actually has
 @st.cache_data
 def load_data():
     try:
@@ -141,26 +141,28 @@ def load_data():
         netflix = pd.read_csv("netflix_india_shows_and_movies.csv")
         hotstar = pd.read_csv("hotstar.csv")
 
-        # keeping only the columns i need and renaming them to match
-        prime_clean = prime[['name', 'type', 'genre', 'release_year', 'synopsis']].copy()
+        # prime has: name, type, genre, release_year, synopsis, imdb_rating
+        prime_clean = prime[['name', 'type', 'genre', 'release_year', 'synopsis', 'imdb_rating']].copy()
         prime_clean['platform'] = 'Prime Video'
-        prime_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'platform']
+        prime_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
 
+        # netflix has: name, type, genre, release_year, description - no imdb rating column
         netflix_clean = netflix[['name', 'type', 'genre', 'release_year', 'description']].copy()
         netflix_clean['platform'] = 'Netflix'
-        netflix_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'platform']
+        netflix_clean['imdb_rating'] = None
+        netflix_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
 
+        # hotstar has: title, type, genre, year, description - no imdb rating column
         hotstar_clean = hotstar[['title', 'type', 'genre', 'year', 'description']].copy()
         hotstar_clean['platform'] = 'Hotstar'
-        hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'platform']
+        hotstar_clean['imdb_rating'] = None
+        hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
 
         # combining all platforms into one big dataframe
-        st.write("Prime columns:", prime.columns.tolist())
-        st.write("Netflix columns:", netflix.columns.tolist())
-        st.write("Hotstar columns:", hotstar.columns.tolist())
         combined = pd.concat([prime_clean, netflix_clean, hotstar_clean], ignore_index=True)
         combined = combined.dropna(subset=['title', 'genre'])
         combined['description'] = combined['description'].fillna('')
+        combined['imdb_rating'] = pd.to_numeric(combined['imdb_rating'], errors='coerce')
 
         # this is what the recommendation model will search through
         combined['search_text'] = combined['title'] + ' ' + combined['genre'] + ' ' + combined['description']
@@ -178,23 +180,22 @@ def load_data():
         st.stop()
 
 # building the tfidf vectorizer - this is the core of the recommendation system
-# cache_resource means it only builds once and reuses it
 @st.cache_resource
 def build_vectorizer(combined):
     vectorizer = TfidfVectorizer(stop_words='english', max_features=5000)
     tfidf_matrix = vectorizer.fit_transform(combined['search_text'])
     return vectorizer, tfidf_matrix
 
-# genre based search - filters by genre and optionally by rating
+# genre based search - filters by genre and optionally by imdb rating
 def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     genre_input = genre_input.lower().strip()
     matches = combined[combined['genre'].str.lower().str.contains(genre_input, na=False)]
 
-    # only apply rating filter if the dataset actually has a rating column
-    if 'rating' in combined.columns:
-        matches = matches[matches['rating'] >= min_rating]
-
-    matches = matches.reset_index(drop=True)
+    # apply rating filter only on rows that actually have a rating
+    rated = matches[matches['imdb_rating'].notna()]
+    unrated = matches[matches['imdb_rating'].isna()]
+    rated = rated[rated['imdb_rating'] >= min_rating]
+    matches = pd.concat([rated, unrated], ignore_index=True)
 
     if matches.empty:
         return None, None
@@ -244,9 +245,8 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
     )
     return chat.choices[0].message.content, top_matches
 
-# reusable function to display results so i dont repeat the same code in both tabs
-def show_results(result, matches):
-   def show_results(result, matches, tab_prefix=""):
+# reusable function to show results - tab_prefix makes sure button keys are unique
+def show_results(result, matches, tab_prefix=""):
     st.success(result)
     st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
 
@@ -258,20 +258,20 @@ def show_results(result, matches):
     st.markdown("### Top Picks")
     for platform in matches['platform'].unique():
         st.markdown(f"**{platform}**")
-        top = matches[matches['platform'] == platform].head(5)[['title', 'type', 'genre']]
+        top = matches[matches['platform'] == platform].head(5).reset_index(drop=True)
         for idx, row in top.iterrows():
             col1, col2 = st.columns([4, 1])
             with col1:
                 st.markdown(f"<span style='color:#e8e0d0; font-size:14px;'>{row['title']} <span style='color:#555; font-size:12px;'>({row['type']})</span></span>", unsafe_allow_html=True)
             with col2:
-                # unique key using tab prefix + index + title + platform
-                button_key = f"{tab_prefix}_{idx}_{row['title'][:10]}_{platform}"
+                # unique key using tab prefix + index + platform so no duplicates
+                button_key = f"{tab_prefix}_{idx}_{platform}_{row['title'][:8]}"
                 if st.button("♥", key=button_key):
                     if row['title'] not in st.session_state.watchlist:
                         st.session_state.watchlist.append(row['title'])
                         st.toast(f"Added {row['title']} to watchlist!")
                     else:
-                        st.toast(f"Already in watchlist!")
+                        st.toast("Already in your watchlist!")
 
 # loading data and building the model when the app starts
 combined = load_data()
@@ -309,7 +309,7 @@ with tab1:
             if result is None:
                 st.error("No matches found. Try a different genre or mood!")
             else:
-                show_results(result, matches)
+                show_results(result, matches, tab_prefix="genre")
 
 with tab2:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
@@ -321,12 +321,12 @@ with tab2:
         else:
             with st.spinner("Finding the best content for you..."):
                 result, matches = get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, client)
-            show_results(result, matches)
+            show_results(result, matches, tab_prefix="rag")
 
 with tab3:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
     if not st.session_state.watchlist:
-        st.markdown("<div style='color:#555; font-family:Space Mono,monospace; font-size:12px; letter-spacing:1px;'>No shows saved yet — hit the ♥ Save button on any recommendation!</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#555; font-family:Space Mono,monospace; font-size:12px; letter-spacing:1px;'>No shows saved yet — hit the ♥ button on any recommendation!</div>", unsafe_allow_html=True)
     else:
         st.markdown(f"<div style='font-family:Space Mono,monospace; font-size:11px; color:#00d4d4; letter-spacing:2px; margin-bottom:1rem;'>{len(st.session_state.watchlist)} TITLES SAVED</div>", unsafe_allow_html=True)
         for i, title in enumerate(st.session_state.watchlist):
