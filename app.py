@@ -249,7 +249,6 @@ def show_results(result, matches, tab_prefix=""):
     st.success(result)
     st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
 
-    # bar chart showing how many titles each platform has
     pc = matches['platform'].value_counts().reset_index()
     pc.columns = ['Platform', 'Titles']
     st.bar_chart(pc.set_index('Platform'))
@@ -263,15 +262,14 @@ def show_results(result, matches, tab_prefix=""):
             with col1:
                 st.markdown(f"<span style='color:#e8e0d0; font-size:14px;'>{row['title']} <span style='color:#555; font-size:12px;'>({row['type']})</span></span>", unsafe_allow_html=True)
             with col2:
-                # unique key using tab prefix + index + platform so no duplicates
                 button_key = f"{tab_prefix}_{idx}_{platform}_{row['title'][:8]}"
-                if st.button("♥", key=button_key):
-                    if row['title'] not in st.session_state.watchlist:
+                already_saved = row['title'] in st.session_state.watchlist
+                if already_saved:
+                    st.markdown("<span style='color:#00d4d4; font-size:18px;'>♥</span>", unsafe_allow_html=True)
+                else:
+                    if st.button("♥", key=button_key):
                         st.session_state.watchlist.append(row['title'])
-                        st.toast(f"Added {row['title']} to watchlist!")
-                    else:
-                        st.toast("Already in your watchlist!")
-
+                        st.rerun()
 # loading data and building the model when the app starts
 combined = load_data()
 vectorizer, tfidf_matrix = build_vectorizer(combined)
