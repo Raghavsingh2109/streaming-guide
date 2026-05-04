@@ -155,6 +155,9 @@ def load_data():
         hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'platform']
 
         # combining all platforms into one big dataframe
+        st.write("Prime columns:", prime.columns.tolist())
+        st.write("Netflix columns:", netflix.columns.tolist())
+        st.write("Hotstar columns:", hotstar.columns.tolist())
         combined = pd.concat([prime_clean, netflix_clean, hotstar_clean], ignore_index=True)
         combined = combined.dropna(subset=['title', 'genre'])
         combined['description'] = combined['description'].fillna('')
@@ -243,6 +246,7 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
 
 # reusable function to display results so i dont repeat the same code in both tabs
 def show_results(result, matches):
+   def show_results(result, matches, tab_prefix=""):
     st.success(result)
     st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
 
@@ -255,16 +259,19 @@ def show_results(result, matches):
     for platform in matches['platform'].unique():
         st.markdown(f"**{platform}**")
         top = matches[matches['platform'] == platform].head(5)[['title', 'type', 'genre']]
-        for _, row in top.iterrows():
+        for idx, row in top.iterrows():
             col1, col2 = st.columns([4, 1])
             with col1:
                 st.markdown(f"<span style='color:#e8e0d0; font-size:14px;'>{row['title']} <span style='color:#555; font-size:12px;'>({row['type']})</span></span>", unsafe_allow_html=True)
             with col2:
-                # save button adds the title to the watchlist
-                if st.button("♥ Save", key=f"save_{row['title']}_{platform}"):
+                # unique key using tab prefix + index + title + platform
+                button_key = f"{tab_prefix}_{idx}_{row['title'][:10]}_{platform}"
+                if st.button("♥", key=button_key):
                     if row['title'] not in st.session_state.watchlist:
                         st.session_state.watchlist.append(row['title'])
                         st.toast(f"Added {row['title']} to watchlist!")
+                    else:
+                        st.toast(f"Already in watchlist!")
 
 # loading data and building the model when the app starts
 combined = load_data()
