@@ -7,12 +7,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import os
 
-# grabbing the api key from environment so it doesnt show up in the code
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 st.set_page_config(page_title="StreamIQ", page_icon="🎬", layout="centered")
 
-# all the custom styling to make it look cinematic and dark
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Space+Mono:wght@400;700&display=swap');
@@ -84,11 +82,6 @@ h1, h2, h3 {
     border-left: 3px solid #00d4d4 !important;
     border-radius: 8px !important;
 }
-.stDataFrame {
-    background-color: #12121a !important;
-    border: 1px solid #2a2a3a !important;
-    border-radius: 8px !important;
-}
 .stSpinner > div { border-top-color: #00d4d4 !important; }
 .stToolbar { visibility: hidden; }
 [data-testid="stToolbar"] { visibility: hidden; }
@@ -99,7 +92,6 @@ header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# app header with the StreamIQ branding
 st.markdown("""
 <div style='padding:1.5rem 0 1rem; border-bottom:0.5px solid #2a2a3a; margin-bottom:1.5rem;'>
     <div style='font-family:Playfair Display,serif; font-size:2.2rem; color:#00d4d4; font-weight:700; letter-spacing:-0.5px;'>
@@ -111,12 +103,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# stop the app early if the api key isnt set up properly
 if not GROQ_API_KEY:
     st.error("Groq API key not found. Please set it in your environment secrets.")
     st.stop()
 
-# storing everything in session state so it survives reruns
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 if 'genre_result' not in st.session_state:
@@ -128,7 +118,6 @@ if 'rag_result' not in st.session_state:
 if 'rag_matches' not in st.session_state:
     st.session_state.rag_matches = None
 
-# mood to genre mapping
 MOOD_MAP = {
     "Any mood": "",
     "Intense & gripping": "crime thriller drama",
@@ -140,7 +129,19 @@ MOOD_MAP = {
     "Thought provoking": "documentary biography drama"
 }
 
-# loading and combining all three platform datasets
+# platform colors and badges
+PLATFORM_COLORS = {
+    "Netflix": "#E50914",
+    "Prime Video": "#00A8E0",
+    "Hotstar": "#1F80E0"
+}
+
+PLATFORM_BADGES = {
+    "Netflix": "🔴 Netflix",
+    "Prime Video": "🔵 Prime Video",
+    "Hotstar": "🟣 Hotstar"
+}
+
 @st.cache_data
 def load_data():
     try:
@@ -171,23 +172,21 @@ def load_data():
         return combined
 
     except KeyError as e:
-        st.error(f"Looks like a column is missing in one of the CSV files: {e}")
+        st.error(f"Column missing in one of the CSV files: {e}")
         st.stop()
     except FileNotFoundError as e:
         st.error(f"Couldnt find one of the dataset files: {e}")
         st.stop()
     except Exception as e:
-        st.error(f"Something went wrong while loading the data: {e}")
+        st.error(f"Something went wrong loading the data: {e}")
         st.stop()
 
-# building the tfidf vectorizer
 @st.cache_resource
 def build_vectorizer(combined):
     vectorizer = TfidfVectorizer(stop_words='english', max_features=5000)
     tfidf_matrix = vectorizer.fit_transform(combined['search_text'])
     return vectorizer, tfidf_matrix
 
-# genre based search
 def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     genre_input = genre_input.lower().strip()
     matches = combined[combined['genre'].str.lower().str.contains(genre_input, na=False)]
@@ -218,7 +217,6 @@ def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     )
     return chat.choices[0].message.content, matches
 
-# rag based search
 def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, client):
     query_vec = vectorizer.transform([user_query])
     similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
@@ -241,38 +239,101 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
     )
     return chat.choices[0].message.content, top_matches
 
-# reusable results display - results stay visible after saving because we store them in session state
+# colored bar chart using plotly so each platform gets its own color
+def show_platform_chart(matches):
+    platform_counts = matches['platform'].value_counts().reset_index()
+    platform_counts.columns = ['Platform', 'Titles']
+
+    colors = [PLATFORM_COLORS.get(p, "#00d4d4") for p in platform_counts['Platform']]
+
+    bars = ""
+    max_count = platform_counts['Titles'].max()
+    for i, row in platform_counts.iterrows():
+        width = int((row['Titles'] / max_count) * 100)
+        color = PLATFORM_COLORS.get(row['Platform'], "#00d4d4")
+        badge = PLATFORM_BADGES.get(row['Platform'], row['Platform'])
+        bars += f"""
+        <div style='margin-bottom:12px;'>
+            <div style='display:flex; justify-content:space-between; margin-bottom:4px;'>
+                <span style='font-family:Space Mono,monospace; font-size:11px; color:{color}; letter-spacing:1px;'>{badge}</span>
+                <span style='font-family:Space Mono,monospace; font-size:11px; color:#555;'>{row['Titles']} titles</span>
+            </div>
+            <div style='background:#12121a; border-radius:4px; height:8px; width:100%;'>
+                <div style='background:{color}; border-radius:4px; height:8px; width:{width}%; transition:width 0.3s;'></div>
+            </div>
+        </div>
+        """
+
+    st.markdown(f"""
+    <div style='background:#0d0d14; border:0.5px solid #2a2a3a; border-radius:10px; padding:1.2rem 1.5rem; margin:1rem 0;'>
+        <div style='font-family:Space Mono,monospace; font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; margin-bottom:1rem;'>Titles by platform</div>
+        {bars}
+    </div>
+    """, unsafe_allow_html=True)
+
+# empty state shown when no results are found
+def show_empty_state(search_term):
+    st.markdown(f"""
+    <div style='text-align:center; padding:3rem 1rem; border:0.5px dashed #2a2a3a; border-radius:12px; margin:1.5rem 0;'>
+        <div style='font-size:2.5rem; margin-bottom:1rem;'>🎬</div>
+        <div style='font-family:Space Mono,monospace; font-size:13px; color:#00d4d4; letter-spacing:2px; text-transform:uppercase; margin-bottom:0.75rem;'>
+            No results found
+        </div>
+        <div style='font-family:Playfair Display,serif; font-size:14px; color:#555; margin-bottom:1.5rem;'>
+            We couldn't find anything matching <span style='color:#e8e0d0;'>"{search_term}"</span>
+        </div>
+        <div style='font-family:Space Mono,monospace; font-size:10px; color:#444; letter-spacing:1px; line-height:1.8;'>
+            Try a broader genre like Action, Drama or Comedy<br>
+            Or lower the IMDb rating filter<br>
+            Or try the AI Search tab and describe what you want
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 def show_results(result, matches, tab_prefix=""):
     st.success(result)
     st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
 
-    pc = matches['platform'].value_counts().reset_index()
-    pc.columns = ['Platform', 'Titles']
-    st.bar_chart(pc.set_index('Platform'))
+    # colored platform chart
+    show_platform_chart(matches)
 
     st.markdown("### Top Picks")
     for platform in matches['platform'].unique():
-        st.markdown(f"**{platform}**")
+        color = PLATFORM_COLORS.get(platform, "#00d4d4")
+        badge = PLATFORM_BADGES.get(platform, platform)
+
+        # platform section header with its color
+        st.markdown(f"""
+        <div style='border-left:3px solid {color}; padding-left:10px; margin:1.2rem 0 0.6rem;'>
+            <span style='font-family:Space Mono,monospace; font-size:11px; color:{color}; letter-spacing:2px; text-transform:uppercase;'>{badge}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
         top = matches[matches['platform'] == platform].head(5).reset_index(drop=True)
         for idx, row in top.iterrows():
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.markdown(f"<span style='color:#e8e0d0; font-size:14px;'>{row['title']} <span style='color:#555; font-size:12px;'>({row['type']})</span></span>", unsafe_allow_html=True)
+                # platform colored dot next to each title
+                st.markdown(f"""
+                <div style='padding:6px 0;'>
+                    <span style='color:{color}; font-size:10px;'>●</span>
+                    <span style='color:#e8e0d0; font-size:14px; margin-left:8px;'>{row['title']}</span>
+                    <span style='color:#444; font-size:11px; margin-left:6px;'>{row['type']}</span>
+                </div>
+                """, unsafe_allow_html=True)
             with col2:
                 already_saved = row['title'] in st.session_state.watchlist
                 if already_saved:
-                    st.markdown("<span style='color:#00d4d4; font-size:20px;'>♥</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:{color}; font-size:20px;'>♥</span>", unsafe_allow_html=True)
                 else:
                     button_key = f"{tab_prefix}_{idx}_{platform}_{row['title'][:8]}"
                     if st.button("♥", key=button_key):
                         st.session_state.watchlist.append(row['title'])
 
-# loading data and building the model
 combined = load_data()
 vectorizer, tfidf_matrix = build_vectorizer(combined)
 client = Groq(api_key=GROQ_API_KEY)
 
-# showing watchlist summary at the top if anything is saved
 if st.session_state.watchlist:
     st.markdown(f"""
     <div style='background:#0d0d14; border:0.5px solid #1a3a3a; border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; font-family:Space Mono,monospace; font-size:11px; color:#00d4d4; letter-spacing:1px;'>
@@ -298,14 +359,17 @@ with tab1:
             with st.spinner("Finding the best content for you..."):
                 result, matches = get_genre_recommendation(search_term, combined, client, min_rating)
             if result is None:
-                st.error("No matches found. Try a different genre or mood!")
+                st.session_state.genre_result = "empty"
+                st.session_state.genre_matches = None
+                st.session_state.genre_search_term = search_term
             else:
-                # storing results in session state so they survive the rerun when save is clicked
                 st.session_state.genre_result = result
                 st.session_state.genre_matches = matches
+                st.session_state.genre_search_term = search_term
 
-    # showing results from session state so they dont disappear after saving
-    if st.session_state.genre_result is not None:
+    if st.session_state.genre_result == "empty":
+        show_empty_state(st.session_state.get("genre_search_term", ""))
+    elif st.session_state.genre_result is not None:
         show_results(st.session_state.genre_result, st.session_state.genre_matches, tab_prefix="genre")
 
 with tab2:
@@ -318,18 +382,24 @@ with tab2:
         else:
             with st.spinner("Finding the best content for you..."):
                 result, matches = get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, client)
-            # storing rag results in session state too
             st.session_state.rag_result = result
             st.session_state.rag_matches = matches
 
-    # showing results from session state
     if st.session_state.rag_result is not None:
         show_results(st.session_state.rag_result, st.session_state.rag_matches, tab_prefix="rag")
 
 with tab3:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
     if not st.session_state.watchlist:
-        st.markdown("<div style='color:#555; font-family:Space Mono,monospace; font-size:12px; letter-spacing:1px;'>No shows saved yet — hit the ♥ button on any recommendation!</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style='text-align:center; padding:3rem 1rem; border:0.5px dashed #2a2a3a; border-radius:12px; margin:1rem 0;'>
+            <div style='font-size:2rem; margin-bottom:1rem;'>♥</div>
+            <div style='font-family:Space Mono,monospace; font-size:12px; color:#444; letter-spacing:1px;'>
+                Nothing saved yet<br>
+                <span style='font-size:10px; color:#333;'>Hit the ♥ on any recommendation to save it here</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.markdown(f"<div style='font-family:Space Mono,monospace; font-size:11px; color:#00d4d4; letter-spacing:2px; margin-bottom:1rem;'>{len(st.session_state.watchlist)} TITLES SAVED</div>", unsafe_allow_html=True)
         for i, title in enumerate(st.session_state.watchlist):
