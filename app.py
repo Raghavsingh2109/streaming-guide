@@ -241,33 +241,41 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
 
 # colored bar chart using plotly so each platform gets its own color
 def show_platform_chart(matches):
+    import plotly.graph_objects as go
+    
     platform_counts = matches['platform'].value_counts().reset_index()
     platform_counts.columns = ['Platform', 'Titles']
-    max_count = int(platform_counts['Titles'].max())
-
-    html = "<div style='background:#0d0d14; border:0.5px solid #2a2a3a; border-radius:10px; padding:1.2rem 1.5rem; margin:1rem 0;'>"
-    html += "<div style='font-family:Space Mono,monospace; font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; margin-bottom:1rem;'>Titles by platform</div>"
-
-    for _, row in platform_counts.iterrows():
-        p = str(row['Platform'])
-        count = int(row['Titles'])
-        width = int((count / max_count) * 100)
-        color = PLATFORM_COLORS.get(p, "#00d4d4")
-        badge = PLATFORM_BADGES.get(p, p)
-
-        html += "<div style='margin-bottom:16px;'>"
-        html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'>"
-        html += f"<span style='font-family:Space Mono,monospace; font-size:11px; color:{color}; letter-spacing:1px;'>{badge}</span>"
-        html += f"<span style='font-family:Space Mono,monospace; font-size:11px; color:#555;'>{count} titles</span>"
-        html += "</div>"
-        html += f"<div style='background:#12121a; border-radius:4px; height:10px; width:100%;'>"
-        html += f"<div style='background:{color}; border-radius:4px; height:10px; width:{width}%;'></div>"
-        html += "</div>"
-        html += "</div>"
-
-    html += "</div>"
-
-    st.markdown(html, unsafe_allow_html=True)
+    
+    colors = [PLATFORM_COLORS.get(p, "#00d4d4") for p in platform_counts['Platform']]
+    
+    fig = go.Figure(go.Bar(
+        x=platform_counts['Platform'],
+        y=platform_counts['Titles'],
+        marker_color=colors,
+        text=platform_counts['Titles'],
+        textposition='outside',
+        textfont=dict(color='#e8e0d0', size=12)
+    ))
+    
+    fig.update_layout(
+        paper_bgcolor='#0d0d14',
+        plot_bgcolor='#0d0d14',
+        font=dict(color='#e8e0d0', family='Space Mono'),
+        margin=dict(t=20, b=20, l=10, r=10),
+        showlegend=False,
+        xaxis=dict(
+            showgrid=False,
+            color='#555'
+        ),
+        yaxis=dict(
+            showgrid=False,
+            gridcolor='#2a2a3a',
+            color='#555'
+        ),
+        height=250
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 # empty state shown when no results are found
 def show_empty_state(search_term):
