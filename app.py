@@ -143,20 +143,19 @@ def load_data():
 
         # prime has: name, type, genre, release_year, synopsis, imdb_rating
         prime_clean = prime[['name', 'type', 'genre', 'release_year', 'synopsis', 'imdb_rating']].copy()
+        prime_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating']
         prime_clean['platform'] = 'Prime Video'
-        prime_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
 
         # netflix has: name, type, genre, release_year, description - no imdb rating column
         netflix_clean = netflix[['name', 'type', 'genre', 'release_year', 'description']].copy()
-        netflix_clean['platform'] = 'Netflix'
+        netflix_clean.columns = ['title', 'type', 'genre', 'release_year', 'description']
         netflix_clean['imdb_rating'] = None
-        netflix_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
-
+        netflix_clean['platform'] = 'Netflix'
         # hotstar has: title, type, genre, year, description - no imdb rating column
         hotstar_clean = hotstar[['title', 'type', 'genre', 'year', 'description']].copy()
-        hotstar_clean['platform'] = 'Hotstar'
+        hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description']
         hotstar_clean['imdb_rating'] = None
-        hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating', 'platform']
+        hotstar_clean['platform'] = 'Hotstar'
 
         # combining all platforms into one big dataframe
         combined = pd.concat([prime_clean, netflix_clean, hotstar_clean], ignore_index=True)
