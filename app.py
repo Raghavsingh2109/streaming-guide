@@ -6,18 +6,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 st.set_page_config(page_title="Smart Streaming Guide", page_icon="🎬")
-st.markdown("""<style>st.markdown("""
-<style>
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style='padding: 1.5rem 0 0.5rem;'>
-    <div style='font-family: Playfair Display, serif; font-size: 2rem; color: #00d4d4; font-weight: 700;'>Stream<span style='color:#e8e0d0; font-weight:300;'>IQ</span></div>
-    <div style='font-family: Space Mono, monospace; font-size: 11px; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;'>India's smart streaming guide</div>
-</div>
-""", unsafe_allow_html=True)</style>""", unsafe_allow_html=True)
-
 
 GROQ_API_KEY = "••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
 
