@@ -243,33 +243,21 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
 def show_platform_chart(matches):
     platform_counts = matches['platform'].value_counts().reset_index()
     platform_counts.columns = ['Platform', 'Titles']
+    max_count = int(platform_counts['Titles'].max())
 
-    colors = [PLATFORM_COLORS.get(p, "#00d4d4") for p in platform_counts['Platform']]
+    header = "<div style='background:#0d0d14; border:0.5px solid #2a2a3a; border-radius:10px; padding:1.2rem 1.5rem; margin:1rem 0;'><div style='font-family:Space Mono,monospace; font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; margin-bottom:1rem;'>Titles by platform</div>"
+    footer = "</div>"
+    
+    rows = ""
+    for _, row in platform_counts.iterrows():
+        p = row['Platform']
+        count = int(row['Titles'])
+        width = int((count / max_count) * 100)
+        color = PLATFORM_COLORS.get(p, "#00d4d4")
+        badge = PLATFORM_BADGES.get(p, p)
+        rows += f"<div style='margin-bottom:12px;'><div style='display:flex; justify-content:space-between; margin-bottom:4px;'><span style='font-family:Space Mono,monospace; font-size:11px; color:{color}; letter-spacing:1px;'>{badge}</span><span style='font-family:Space Mono,monospace; font-size:11px; color:#555;'>{count} titles</span></div><div style='background:#12121a; border-radius:4px; height:8px; width:100%;'><div style='background:{color}; border-radius:4px; height:8px; width:{width}%;'></div></div></div>"
 
-    bars = ""
-    max_count = platform_counts['Titles'].max()
-    for i, row in platform_counts.iterrows():
-        width = int((row['Titles'] / max_count) * 100)
-        color = PLATFORM_COLORS.get(row['Platform'], "#00d4d4")
-        badge = PLATFORM_BADGES.get(row['Platform'], row['Platform'])
-        bars += f"""
-        <div style='margin-bottom:12px;'>
-            <div style='display:flex; justify-content:space-between; margin-bottom:4px;'>
-                <span style='font-family:Space Mono,monospace; font-size:11px; color:{color}; letter-spacing:1px;'>{badge}</span>
-                <span style='font-family:Space Mono,monospace; font-size:11px; color:#555;'>{row['Titles']} titles</span>
-            </div>
-            <div style='background:#12121a; border-radius:4px; height:8px; width:100%;'>
-                <div style='background:{color}; border-radius:4px; height:8px; width:{width}%; transition:width 0.3s;'></div>
-            </div>
-        </div>
-        """
-
-    st.markdown(f"""
-    <div style='background:#0d0d14; border:0.5px solid #2a2a3a; border-radius:10px; padding:1.2rem 1.5rem; margin:1rem 0;'>
-        <div style='font-family:Space Mono,monospace; font-size:10px; color:#555; letter-spacing:2px; text-transform:uppercase; margin-bottom:1rem;'>Titles by platform</div>
-        {bars}
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(header + rows + footer, unsafe_allow_html=True)
 
 # empty state shown when no results are found
 def show_empty_state(search_term):
