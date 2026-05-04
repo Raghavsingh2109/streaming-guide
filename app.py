@@ -261,21 +261,27 @@ def show_platform_chart(matches):
         paper_bgcolor='#0d0d14',
         plot_bgcolor='#0d0d14',
         font=dict(color='#e8e0d0', family='Space Mono'),
-        margin=dict(t=20, b=20, l=10, r=10),
+        margin=dict(t=30, b=10, l=10, r=10),
         showlegend=False,
+        bargap=0.4,
         xaxis=dict(
             showgrid=False,
-            color='#555'
+            showline=False,
+            color='#555',
+            tickfont=dict(size=11, color='#555')
         ),
         yaxis=dict(
             showgrid=False,
-            gridcolor='#2a2a3a',
-            color='#555'
+            showline=False,
+            zeroline=False,
+            visible=False
         ),
-        height=250
+        height=220
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
+
+    st.plotly_chart(fig, use_container_width=True, config={
+        'displayModeBar': False
+    })
 
 # empty state shown when no results are found
 def show_empty_state(search_term):
