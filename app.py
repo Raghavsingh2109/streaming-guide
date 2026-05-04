@@ -6,6 +6,114 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 st.set_page_config(page_title="Smart Streaming Guide", page_icon="🎬")
+st.markdown("""<style>st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Space+Mono:wght@400;700&display=swap');
+
+html, body, [class*="css"] {
+    background-color: #0a0a0f !important;
+    color: #e8e0d0 !important;
+    font-family: 'Playfair Display', Georgia, serif !important;
+}
+
+.stApp { background-color: #0a0a0f !important; }
+
+h1 { 
+    font-family: 'Playfair Display', serif !important;
+    color: #00d4d4 !important;
+    font-size: 2.2rem !important;
+    letter-spacing: -0.5px !important;
+}
+
+h2, h3 { 
+    font-family: 'Space Mono', monospace !important;
+    color: #888 !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+}
+
+.stTextInput > div > div > input {
+    background-color: #12121a !important;
+    border: 1px solid #2a2a3a !important;
+    border-radius: 8px !important;
+    color: #e8e0d0 !important;
+    font-family: 'Playfair Display', serif !important;
+    font-size: 15px !important;
+    padding: 0.85rem 1rem !important;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: #00d4d4 !important;
+    box-shadow: none !important;
+}
+
+.stButton > button {
+    background-color: #00d4d4 !important;
+    color: #0a0a0f !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-family: 'Space Mono', monospace !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    width: 100% !important;
+    padding: 0.75rem !important;
+}
+
+.stButton > button:hover {
+    background-color: #00b3b3 !important;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    background-color: #0d0d14 !important;
+    border-bottom: 1px solid #2a2a3a !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Space Mono', monospace !important;
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: #666 !important;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #00d4d4 !important;
+    border-bottom-color: #00d4d4 !important;
+}
+
+.stSuccess {
+    background-color: #12121a !important;
+    border: 1px solid #2a2a3a !important;
+    border-radius: 10px !important;
+    color: #ccc !important;
+    font-style: italic !important;
+}
+
+.stDataFrame {
+    background-color: #12121a !important;
+    border: 1px solid #2a2a3a !important;
+}
+
+.stSpinner > div { border-top-color: #00d4d4 !important; }
+
+.stToolbar { visibility: hidden; }
+[data-testid="stToolbar"] { visibility: hidden; }
+
+footer { visibility: hidden; }
+#MainMenu { visibility: hidden; }
+header { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div style='padding: 1.5rem 0 0.5rem;'>
+    <div style='font-family: Playfair Display, serif; font-size: 2rem; color: #00d4d4; font-weight: 700;'>Stream<span style='color:#e8e0d0; font-weight:300;'>IQ</span></div>
+    <div style='font-family: Space Mono, monospace; font-size: 11px; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px;'>India's smart streaming guide</div>
+</div>
+""", unsafe_allow_html=True)</style>""", unsafe_allow_html=True)
+
 
 GROQ_API_KEY = "••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
 
