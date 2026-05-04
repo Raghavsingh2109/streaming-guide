@@ -116,11 +116,19 @@ if not GROQ_API_KEY:
     st.error("Groq API key not found. Please set it in your environment secrets.")
     st.stop()
 
-# using session state to keep the watchlist alive while the app is running
+# storing everything in session state so it survives reruns
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
+if 'genre_result' not in st.session_state:
+    st.session_state.genre_result = None
+if 'genre_matches' not in st.session_state:
+    st.session_state.genre_matches = None
+if 'rag_result' not in st.session_state:
+    st.session_state.rag_result = None
+if 'rag_matches' not in st.session_state:
+    st.session_state.rag_matches = None
 
-# mood to genre mapping - makes it easier for users who dont know genre names
+# mood to genre mapping
 MOOD_MAP = {
     "Any mood": "",
     "Intense & gripping": "crime thriller drama",
@@ -132,8 +140,7 @@ MOOD_MAP = {
     "Thought provoking": "documentary biography drama"
 }
 
-# loading and combining all three platform datasets into one
-# fixed column names to match exactly what each csv actually has
+# loading and combining all three platform datasets
 @st.cache_data
 def load_data():
     try:
@@ -141,29 +148,24 @@ def load_data():
         netflix = pd.read_csv("netflix_india_shows_and_movies.csv")
         hotstar = pd.read_csv("hotstar.csv")
 
-        # prime has: name, type, genre, release_year, synopsis, imdb_rating
         prime_clean = prime[['name', 'type', 'genre', 'release_year', 'synopsis', 'imdb_rating']].copy()
         prime_clean.columns = ['title', 'type', 'genre', 'release_year', 'description', 'imdb_rating']
         prime_clean['platform'] = 'Prime Video'
 
-        # netflix has: name, type, genre, release_year, description - no imdb rating column
         netflix_clean = netflix[['name', 'type', 'genre', 'release_year', 'description']].copy()
         netflix_clean.columns = ['title', 'type', 'genre', 'release_year', 'description']
         netflix_clean['imdb_rating'] = None
         netflix_clean['platform'] = 'Netflix'
-        # hotstar has: title, type, genre, year, description - no imdb rating column
+
         hotstar_clean = hotstar[['title', 'type', 'genre', 'year', 'description']].copy()
         hotstar_clean.columns = ['title', 'type', 'genre', 'release_year', 'description']
         hotstar_clean['imdb_rating'] = None
         hotstar_clean['platform'] = 'Hotstar'
 
-        # combining all platforms into one big dataframe
         combined = pd.concat([prime_clean, netflix_clean, hotstar_clean], ignore_index=True)
         combined = combined.dropna(subset=['title', 'genre'])
         combined['description'] = combined['description'].fillna('')
         combined['imdb_rating'] = pd.to_numeric(combined['imdb_rating'], errors='coerce')
-
-        # this is what the recommendation model will search through
         combined['search_text'] = combined['title'] + ' ' + combined['genre'] + ' ' + combined['description']
         combined = combined.reset_index(drop=True)
         return combined
@@ -178,19 +180,18 @@ def load_data():
         st.error(f"Something went wrong while loading the data: {e}")
         st.stop()
 
-# building the tfidf vectorizer - this is the core of the recommendation system
+# building the tfidf vectorizer
 @st.cache_resource
 def build_vectorizer(combined):
     vectorizer = TfidfVectorizer(stop_words='english', max_features=5000)
     tfidf_matrix = vectorizer.fit_transform(combined['search_text'])
     return vectorizer, tfidf_matrix
 
-# genre based search - filters by genre and optionally by imdb rating
+# genre based search
 def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     genre_input = genre_input.lower().strip()
     matches = combined[combined['genre'].str.lower().str.contains(genre_input, na=False)]
 
-    # apply rating filter only on rows that actually have a rating
     rated = matches[matches['imdb_rating'].notna()]
     unrated = matches[matches['imdb_rating'].isna()]
     rated = rated[rated['imdb_rating'] >= min_rating]
@@ -199,7 +200,6 @@ def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     if matches.empty:
         return None, None
 
-    # building a summary to send to groq
     platform_counts = matches['platform'].value_counts()
     summary = f"The user likes {genre_input} content. Here are some matches:\n\n"
     for platform in platform_counts.index:
@@ -218,16 +218,13 @@ def get_genre_recommendation(genre_input, combined, client, min_rating=6.0):
     )
     return chat.choices[0].message.content, matches
 
-# rag based search - uses cosine similarity to find closest matches to what user typed
+# rag based search
 def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, client):
     query_vec = vectorizer.transform([user_query])
     similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
-
-    # getting top 10 most similar titles
     top_indices = similarities.argsort()[-10:][::-1]
     top_matches = combined.iloc[top_indices]
 
-    # building context to pass into groq
     context = f"User asked: {user_query}\n\nMost relevant shows and movies found:\n\n"
     for _, row in top_matches.iterrows():
         context += f"Title: {row['title']}\nPlatform: {row['platform']}\nGenre: {row['genre']}\nType: {row['type']}\n"
@@ -244,7 +241,7 @@ def get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, clien
     )
     return chat.choices[0].message.content, top_matches
 
-# reusable function to show results - tab_prefix makes sure button keys are unique
+# reusable results display - results stay visible after saving because we store them in session state
 def show_results(result, matches, tab_prefix=""):
     st.success(result)
     st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
@@ -262,20 +259,20 @@ def show_results(result, matches, tab_prefix=""):
             with col1:
                 st.markdown(f"<span style='color:#e8e0d0; font-size:14px;'>{row['title']} <span style='color:#555; font-size:12px;'>({row['type']})</span></span>", unsafe_allow_html=True)
             with col2:
-                button_key = f"{tab_prefix}_{idx}_{platform}_{row['title'][:8]}"
                 already_saved = row['title'] in st.session_state.watchlist
                 if already_saved:
-                    st.markdown("<span style='color:#00d4d4; font-size:18px;'>♥</span>", unsafe_allow_html=True)
+                    st.markdown("<span style='color:#00d4d4; font-size:20px;'>♥</span>", unsafe_allow_html=True)
                 else:
+                    button_key = f"{tab_prefix}_{idx}_{platform}_{row['title'][:8]}"
                     if st.button("♥", key=button_key):
                         st.session_state.watchlist.append(row['title'])
-                        st.rerun()
-# loading data and building the model when the app starts
+
+# loading data and building the model
 combined = load_data()
 vectorizer, tfidf_matrix = build_vectorizer(combined)
 client = Groq(api_key=GROQ_API_KEY)
 
-# showing watchlist summary at the top if user has saved anything
+# showing watchlist summary at the top if anything is saved
 if st.session_state.watchlist:
     st.markdown(f"""
     <div style='background:#0d0d14; border:0.5px solid #1a3a3a; border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; font-family:Space Mono,monospace; font-size:11px; color:#00d4d4; letter-spacing:1px;'>
@@ -283,15 +280,12 @@ if st.session_state.watchlist:
     </div>
     """, unsafe_allow_html=True)
 
-# three tabs - genre search, ai search, and watchlist
 tab1, tab2, tab3 = st.tabs(["🎭  By Genre", "🤖  AI Search", "♥  My Watchlist"])
 
 with tab1:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
     genre = st.text_input("Enter your favourite genre", placeholder="e.g. Action, Drama, Comedy, Horror", key="genre_input")
     mood = st.selectbox("What's your mood?", list(MOOD_MAP.keys()), key="mood_select")
-
-    # slider value gets passed into the function to filter results
     min_rating = st.slider("Minimum IMDb rating", 1.0, 10.0, 6.0, 0.5, key="rating_slider")
 
     if st.button("Find My Shows", key="genre_btn"):
@@ -306,7 +300,13 @@ with tab1:
             if result is None:
                 st.error("No matches found. Try a different genre or mood!")
             else:
-                show_results(result, matches, tab_prefix="genre")
+                # storing results in session state so they survive the rerun when save is clicked
+                st.session_state.genre_result = result
+                st.session_state.genre_matches = matches
+
+    # showing results from session state so they dont disappear after saving
+    if st.session_state.genre_result is not None:
+        show_results(st.session_state.genre_result, st.session_state.genre_matches, tab_prefix="genre")
 
 with tab2:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
@@ -318,7 +318,13 @@ with tab2:
         else:
             with st.spinner("Finding the best content for you..."):
                 result, matches = get_rag_recommendation(user_query, combined, vectorizer, tfidf_matrix, client)
-            show_results(result, matches, tab_prefix="rag")
+            # storing rag results in session state too
+            st.session_state.rag_result = result
+            st.session_state.rag_matches = matches
+
+    # showing results from session state
+    if st.session_state.rag_result is not None:
+        show_results(st.session_state.rag_result, st.session_state.rag_matches, tab_prefix="rag")
 
 with tab3:
     st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
@@ -335,7 +341,6 @@ with tab3:
                     st.session_state.watchlist.remove(title)
                     st.rerun()
 
-        # clear everything button at the bottom
         if st.button("Clear Watchlist", key="clear_watchlist"):
             st.session_state.watchlist = []
             st.rerun()
