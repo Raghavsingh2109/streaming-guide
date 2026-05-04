@@ -4,3 +4,4 @@ groq
 scikit-learn
 numpy
 python-dotenv
+plotly
